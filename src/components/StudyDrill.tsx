@@ -165,6 +165,7 @@ export function StudyDrill() {
   const [lockSecondsLeft, setLockSecondsLeft] = useState(0);
 
   const hiddenTimeoutRef = useRef<number | null>(null);
+  const answerInputRef = useRef<HTMLInputElement>(null);
 
   const cards = session?.items ?? [];
   const activeCardId = useMemo(() => nextUnsolvedCardId(cards), [cards]);
@@ -173,6 +174,17 @@ export function StudyDrill() {
   const parsedInput = useMemo(() => parseInput(inputText), [inputText]);
   const wordMatches = useMemo(() => searchWords(wordBand, wordQuery), [wordBand, wordQuery]);
   const isLocked = penaltyActive && lockSecondsLeft > 0;
+
+  useEffect(() => {
+    if (!activeCardId || isLocked) {
+      return;
+    }
+    const frame = window.requestAnimationFrame(() => {
+      answerInputRef.current?.focus();
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [activeCardId, isLocked]);
+
   const solvedCount = cards.filter((card) => card.isSolved).length;
   const progress = cards.length ? Math.round((solvedCount / cards.length) * 100) : 0;
 
@@ -429,10 +441,14 @@ export function StudyDrill() {
     }
 
     if (!isCorrect) {
-      setFeedback((current) => ({ ...current, [card.id]: 'Noto‘g‘ri. To‘g‘ri javobni toping.' }));
+      setFeedback((current) => ({ ...current, [card.id]: 'Noto‘g‘ri. Qayta yozing va Enter bosing.' }));
       const nextItems = session.items.map((item) => item.id === card.id ? { ...item, attempts: item.attempts + 1, mastery: Math.max(0, item.mastery - 5), status: 'mistake' as const } : item);
       const nextSession = completeSessionIfNeeded(nextItems, session, 0);
       setSession(nextSession);
+      window.requestAnimationFrame(() => {
+        answerInputRef.current?.focus();
+        answerInputRef.current?.select();
+      });
       return;
     }
 
@@ -456,13 +472,6 @@ export function StudyDrill() {
     const nextSession = completeSessionIfNeeded(nextItems, { ...session, xpBalance: session.xpBalance + 10 }, 10);
     setSession(nextSession);
     setAnswers((current) => ({ ...current, [card.id]: card.answer }));
-  }
-
-  function handleEnterSubmit(event: React.KeyboardEvent<HTMLInputElement>, card: StudyCard) {
-    if (event.key === 'Enter') {
-      event.preventDefault();
-      handleSubmit(card);
-    }
   }
 
   function resetSession() {
@@ -647,7 +656,7 @@ export function StudyDrill() {
           <div>
             <h3 className="text-xl font-black text-white">Strict typing session</h3>
             <p className="text-sm text-slate-400">
-              {isFocusMode ? 'Focus mode active: faqat input + submit ishlaydi.' : 'Normal mode: review controls available.'}
+              {isFocusMode ? 'Yozing va Enter bosing. Keyingi kartaga o‘zi o‘tadi.' : 'Normal mode: review controls available.'}
             </p>
           </div>
 
@@ -664,9 +673,7 @@ export function StudyDrill() {
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <h4 className="text-2xl font-black text-white">{card.term}</h4>
-                          {!isFocusMode && card.translation ? <p className="mt-1 text-sm text-sky-300">{card.translation}</p> : null}
-                          <p className="mt-2 text-sm text-slate-300">Definition: {card.definitionEn ?? card.hint}</p>
-                          <p className="mt-1 text-xs text-slate-500">Synonyms: {(card.clueSynonyms ?? []).join(', ') || card.hint}</p>
+                          {card.translation ? <p className="mt-1 text-sm text-sky-300">{card.translation}</p> : null}
                         </div>
                         <button
                           type="button"
@@ -680,10 +687,12 @@ export function StudyDrill() {
 
                       <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
                         <p className="text-lg text-slate-100">{card.blankedSentence}</p>
+                        {card.sentenceUz ? <p className="mt-2 text-base text-sky-200">{card.sentenceUz}</p> : null}
                       </div>
 
                       <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-center">
                         <input
+                          ref={card.id === activeCardId ? answerInputRef : undefined}
                           value={userAnswer}
                           onChange={(event) => setAnswers((current) => ({ ...current, [card.id]: event.target.value }))}
                           onKeyDown={(event) => {
@@ -693,8 +702,9 @@ export function StudyDrill() {
                             }
                           }}
                           disabled={isLocked}
+                          autoFocus={card.id === activeCardId}
                           className="w-full rounded-2xl border border-slate-800 bg-slate-900 px-4 py-3 text-slate-100 outline-none transition-colors focus:border-indigo-500/60 disabled:opacity-60"
-                          placeholder="Type the missing word or phrase"
+                          placeholder="So‘zni yozing, Enter bosing"
                         />
                         <button
                           type="button"

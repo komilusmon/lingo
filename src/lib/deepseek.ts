@@ -13,6 +13,7 @@ export interface DeepSeekResponseItem {
   type: 'word' | 'phrase';
   sentence: string;
   blankedSentence: string;
+  sentenceUz?: string;
   answer: string;
   hint: string;
   explanation?: string;
@@ -23,47 +24,121 @@ export interface GenerateDrillPayload {
   items: DeepSeekRequestItem[];
 }
 
-const TEMPLATES: Record<Level, Record<'word' | 'phrase', Array<(term: string) => string>>> = {
+type SentenceFrame = (term: string, gloss: string) => { en: string; uz: string };
+
+const FRAMES: Record<Level, Record<'word' | 'phrase', SentenceFrame[]>> = {
   A2: {
     word: [
-      (term) => `I know the word ${term}.`,
-      (term) => `Please write ${term}.`,
-      (term) => `We say ${term} at school.`,
-      (term) => `This word is ${term}.`,
+      (term, gloss) => ({
+        en: `I want to learn ${term}.`,
+        uz: `Men ${gloss} ni o‘rganmoqchiman.`,
+      }),
+      (term, gloss) => ({
+        en: `We need ${term} today.`,
+        uz: `Bugun bizga ${gloss} kerak.`,
+      }),
+      (term, gloss) => ({
+        en: `She said ${term} yesterday.`,
+        uz: `U kecha ${gloss} dedi.`,
+      }),
+      (term, gloss) => ({
+        en: `This lesson is about ${term}.`,
+        uz: `Bu dars ${gloss} haqida.`,
+      }),
     ],
     phrase: [
-      (term) => `I know the phrase "${term}".`,
-      (term) => `Please say "${term}".`,
-      (term) => `We use "${term}" at school.`,
-      (term) => `This phrase is "${term}".`,
+      (term, gloss) => ({
+        en: `I want to learn "${term}".`,
+        uz: `Men "${gloss}" ni o‘rganmoqchiman.`,
+      }),
+      (term, gloss) => ({
+        en: `We need "${term}" today.`,
+        uz: `Bugun bizga "${gloss}" kerak.`,
+      }),
+      (term, gloss) => ({
+        en: `She said "${term}" yesterday.`,
+        uz: `U kecha "${gloss}" dedi.`,
+      }),
+      (term, gloss) => ({
+        en: `This lesson is about "${term}".`,
+        uz: `Bu dars "${gloss}" haqida.`,
+      }),
     ],
   },
   B1: {
     word: [
-      (term) => `I learned the word ${term} in English class.`,
-      (term) => `People often use ${term} in daily conversation.`,
-      (term) => `The teacher asked us to remember ${term}.`,
-      (term) => `You can hear ${term} in simple stories.`,
+      (term, gloss) => ({
+        en: `People use ${term} when they talk about everyday life.`,
+        uz: `Odamlar kundalik hayot haqida gapirganda ${gloss} ishlatishadi.`,
+      }),
+      (term, gloss) => ({
+        en: `The teacher explained ${term} with a simple example.`,
+        uz: `O‘qituvchi ${gloss} ni oddiy misol bilan tushuntirdi.`,
+      }),
+      (term, gloss) => ({
+        en: `You will see ${term} in short texts.`,
+        uz: `Qisqa matnlarda ${gloss} ni ko‘rasiz.`,
+      }),
+      (term, gloss) => ({
+        en: `I understood ${term} after I heard it in a sentence.`,
+        uz: `Men ${gloss} ni gap ichida eshitgach tushundim.`,
+      }),
     ],
     phrase: [
-      (term) => `I learned the phrase "${term}" in English class.`,
-      (term) => `People often say "${term}" in daily conversation.`,
-      (term) => `The teacher asked us to remember "${term}".`,
-      (term) => `You can hear "${term}" in simple stories.`,
+      (term, gloss) => ({
+        en: `People use "${term}" when they talk about everyday life.`,
+        uz: `Odamlar kundalik hayot haqida gapirganda "${gloss}" ishlatishadi.`,
+      }),
+      (term, gloss) => ({
+        en: `The teacher explained "${term}" with a simple example.`,
+        uz: `O‘qituvchi "${gloss}" ni oddiy misol bilan tushuntirdi.`,
+      }),
+      (term, gloss) => ({
+        en: `You will see "${term}" in short texts.`,
+        uz: `Qisqa matnlarda "${gloss}" ni ko‘rasiz.`,
+      }),
+      (term, gloss) => ({
+        en: `I understood "${term}" after I heard it in a sentence.`,
+        uz: `Men "${gloss}" ni gap ichida eshitgach tushundim.`,
+      }),
     ],
   },
   B2: {
     word: [
-      (term) => `A careful speaker chooses the word ${term} when the meaning must be clear.`,
-      (term) => `You may recognize ${term} in articles and classroom discussions.`,
-      (term) => `Writers use ${term} to make an idea more precise.`,
-      (term) => `During a longer talk, the word ${term} can change the meaning.`,
+      (term, gloss) => ({
+        en: `Writers choose ${term} when they need a precise meaning.`,
+        uz: `Yozuvchilar aniq ma’no kerak bo‘lganda ${gloss} ni tanlashadi.`,
+      }),
+      (term, gloss) => ({
+        en: `In a longer discussion, ${term} can change the idea.`,
+        uz: `Uzunroq suhbatda ${gloss} fikrni o‘zgartirishi mumkin.`,
+      }),
+      (term, gloss) => ({
+        en: `A careful reader notices ${term} in the text.`,
+        uz: `Diqqatli o‘quvchi matndagi ${gloss} ni sezadi.`,
+      }),
+      (term, gloss) => ({
+        en: `The sentence uses ${term} to make the meaning clear.`,
+        uz: `Gap ma’noni ochish uchun ${gloss} ni ishlatadi.`,
+      }),
     ],
     phrase: [
-      (term) => `A careful speaker uses the phrase "${term}" when the meaning must be clear.`,
-      (term) => `You may recognize "${term}" in articles and classroom discussions.`,
-      (term) => `Writers use "${term}" to make an idea more precise.`,
-      (term) => `During a longer talk, the phrase "${term}" can change the meaning.`,
+      (term, gloss) => ({
+        en: `Writers choose "${term}" when they need a precise meaning.`,
+        uz: `Yozuvchilar aniq ma’no kerak bo‘lganda "${gloss}" ni tanlashadi.`,
+      }),
+      (term, gloss) => ({
+        en: `In a longer discussion, "${term}" can change the idea.`,
+        uz: `Uzunroq suhbatda "${gloss}" fikrni o‘zgartirishi mumkin.`,
+      }),
+      (term, gloss) => ({
+        en: `A careful reader notices "${term}" in the text.`,
+        uz: `Diqqatli o‘quvchi matndagi "${gloss}" ni sezadi.`,
+      }),
+      (term, gloss) => ({
+        en: `The sentence uses "${term}" to make the meaning clear.`,
+        uz: `Gap ma’noni ochish uchun "${gloss}" ni ishlatadi.`,
+      }),
     ],
   },
 };
@@ -89,16 +164,18 @@ function replaceTargetWithBlank(sentence: string, target: string) {
   return sentence.includes('____') ? sentence : `${sentence} (____)`;
 }
 
-function buildSentence(term: string, type: 'word' | 'phrase', level: Level) {
-  const templates = TEMPLATES[level][type];
-  const template = templates[pickIndex(`${level}:${type}:${term}`, templates.length)];
-  return template(term.trim());
+function buildSentence(term: string, type: 'word' | 'phrase', level: Level, gloss: string) {
+  const frames = FRAMES[level][type];
+  const frame = frames[pickIndex(`${level}:${type}:${term}`, frames.length)];
+  return frame(term, gloss);
 }
 
 export async function generateDrills(payload: GenerateDrillPayload): Promise<DeepSeekResponseItem[]> {
   return payload.items.map((item) => {
     const term = item.term.trim();
-    const sentence = replaceTargetWithBlank(buildSentence(term, item.type, payload.level), term);
+    const gloss = item.translation?.trim() || term;
+    const pair = buildSentence(term, item.type, payload.level, gloss);
+    const sentence = replaceTargetWithBlank(pair.en, term);
     const hint = item.translation?.trim() || 'Fill in the missing word or phrase.';
 
     return {
@@ -107,6 +184,7 @@ export async function generateDrills(payload: GenerateDrillPayload): Promise<Dee
       type: item.type,
       sentence,
       blankedSentence: sentence,
+      sentenceUz: pair.uz,
       answer: normalizeAnswer(term),
       hint,
       explanation: hint,

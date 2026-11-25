@@ -20,6 +20,7 @@ export interface GeneratedItem {
   type: 'word' | 'phrase';
   sentence: string;
   blankedSentence: string;
+  sentenceUz?: string;
   answer: string;
   hint: string;
   explanation?: string;
