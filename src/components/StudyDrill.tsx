@@ -3,7 +3,7 @@ import { CheckCircle2, CircleAlert, Dices, ListPlus, Send, Sparkles, Trash2, Vol
 import { FocusOverlay } from './FocusOverlay';
 import { generateDrills, normalizeDrillAnswer } from '../lib/deepseek';
 import { flushQueue, syncNowOrQueue } from '../api/supabaseService';
-import { bandSize, nextWords, randomWords, searchWords, WORD_BANDS, type WordBand } from '../lib/wordBank';
+import { bandSize, formatEntry, nextWords, randomWords, searchWords, uzbekFor, WORD_BANDS, type WordBand } from '../lib/wordBank';
 import type { DrillInput, DrillSession, Level, StudyCard } from '../lib/types';
 
 const STORAGE_KEY = 'krasword-study-session-v3';
@@ -283,9 +283,9 @@ export function StudyDrill() {
   }, [isLocked]);
 
   function fillWordList(words: string[]) {
-    setInputText(words.join('\n'));
+    setInputText(words.map(formatEntry).join('\n'));
     setError(null);
-    setMessage(`${words.length} ta so‘z qo‘yildi.`);
+    setMessage(`${words.length} ta so‘z o‘zbekcha tarjimasi bilan qo‘yildi.`);
   }
 
   function rememberWordOffset(band: WordBand, nextOffset: number) {
@@ -316,7 +316,8 @@ export function StudyDrill() {
       return;
     }
     setError(null);
-    setInputText(existing.length ? `${inputText.trim()}\n${word}` : word);
+    const line = formatEntry(word);
+    setInputText(existing.length ? `${inputText.trim()}\n${line}` : line);
   }
 
   const syncSession = (nextSession: DrillSession, reason: 'session-generated' | 'answer-correct' | 'answer-wrong' | 'penalty' | 'session-completed', xpDelta = 0) => {
@@ -569,7 +570,7 @@ export function StudyDrill() {
                     onClick={() => handleAddWord(word)}
                     className="rounded-full border border-slate-800 bg-slate-900 px-3 py-1 text-xs font-bold text-slate-200 hover:border-indigo-400"
                   >
-                    {word}
+                    {uzbekFor(word) ? `${word} · ${uzbekFor(word)}` : word}
                   </button>
                 ))}
               </div>

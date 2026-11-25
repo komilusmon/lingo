@@ -8,7 +8,7 @@ export default function App() {
           <div>
             <div className="text-xs font-black uppercase tracking-[0.35em] text-indigo-300">Krasword</div>
             <h1 className="mt-2 text-3xl font-black text-white">Easy Vocabulary Memorizer</h1>
-            <p className="mt-2 max-w-2xl text-sm text-slate-400">30 ta word yoki phrase kiriting, yoki 10 000 ta tayyor inglizcha so‘zdan oling. Gaplar shu yerda, API kalitsiz tuziladi.</p>
+            <p className="mt-2 max-w-2xl text-sm text-slate-400">30 ta word yoki phrase kiriting, yoki 10 000 ta tayyor so‘zdan o‘zbekcha tarjimasi bilan oling. Gaplar shu yerda, API kalitsiz tuziladi.</p>
           </div>
           <div className="rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3 text-sm text-slate-400">
             Guest mode • Review queue • Translation support

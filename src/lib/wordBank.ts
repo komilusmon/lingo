@@ -1,4 +1,5 @@
 import rawWords from '../data/google-10000-english-master/google-10000-english-usa-no-swears.txt?raw';
+import rawGlosses from '../data/en-uz.tsv?raw';
 
 export type WordBand = 'all' | 'short' | 'medium' | 'long';
 
@@ -19,6 +20,28 @@ function parseWords(raw: string) {
 // Frequency-ordered US English list from the Google Web Trillion Word Corpus
 // (via Peter Norvig). The swear-word subset is left out.
 export const ENGLISH_WORDS = parseWords(rawWords);
+
+const UZBEK = new Map<string, string>();
+for (const line of rawGlosses.split(/\r?\n/)) {
+  const tab = line.indexOf('\t');
+  if (tab <= 0) {
+    continue;
+  }
+  const word = line.slice(0, tab).trim().toLowerCase();
+  const gloss = line.slice(tab + 1).trim();
+  if (word && gloss) {
+    UZBEK.set(word, gloss);
+  }
+}
+
+export function uzbekFor(word: string) {
+  return UZBEK.get(word.trim().toLowerCase());
+}
+
+export function formatEntry(word: string) {
+  const gloss = uzbekFor(word);
+  return gloss ? `${word} | ${gloss}` : word;
+}
 
 export const WORD_BANDS: { id: WordBand; label: string; hint: string }[] = [
   { id: 'short', label: 'Qisqa', hint: '1–4' },
