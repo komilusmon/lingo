@@ -1,11 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { CheckCircle2, CircleAlert, Send, Sparkles, Trash2, Volume2 } from 'lucide-react';
+import { CheckCircle2, CircleAlert, Dices, ListPlus, Send, Sparkles, Trash2, Volume2 } from 'lucide-react';
 import { FocusOverlay } from './FocusOverlay';
 import { generateDrills, normalizeDrillAnswer } from '../lib/deepseek';
 import { flushQueue, syncNowOrQueue } from '../api/supabaseService';
+import { bandSize, nextWords, randomWords, searchWords, WORD_BANDS, type WordBand } from '../lib/wordBank';
 import type { DrillInput, DrillSession, Level, StudyCard } from '../lib/types';
 
 const STORAGE_KEY = 'krasword-study-session-v3';
+const WORD_OFFSET_KEY = 'krasword-wordbank-offset-v1';
 const MAX_ITEMS = 30;
 const LEVELS: Level[] = ['A2', 'B1', 'B2'];
 const DEFAULT_LINES = [
@@ -122,6 +124,25 @@ function nextUnsolvedCardId(cards: StudyCard[]) {
   return cards.find((card) => !card.isSolved)?.id ?? cards[0]?.id ?? null;
 }
 
+function loadWordOffsets(): Record<WordBand, number> {
+  const empty: Record<WordBand, number> = { all: 0, short: 0, medium: 0, long: 0 };
+  try {
+    const raw = localStorage.getItem(WORD_OFFSET_KEY);
+    if (!raw) {
+      return empty;
+    }
+    const parsed = JSON.parse(raw) as Partial<Record<WordBand, number>>;
+    return {
+      all: parsed.all ?? 0,
+      short: parsed.short ?? 0,
+      medium: parsed.medium ?? 0,
+      long: parsed.long ?? 0,
+    };
+  } catch {
+    return empty;
+  }
+}
+
 export function StudyDrill() {
   const saved = useMemo(() => loadSavedSession(), []);
 
@@ -134,6 +155,9 @@ export function StudyDrill() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [isFocusMode, setIsFocusMode] = useState(true);
+  const [wordBand, setWordBand] = useState<WordBand>('medium');
+  const [wordQuery, setWordQuery] = useState('');
+  const [wordOffsets, setWordOffsets] = useState(loadWordOffsets);
 
   const [consecutiveViolations, setConsecutiveViolations] = useState(0);
   const [penaltyActive, setPenaltyActive] = useState(false);
@@ -147,6 +171,7 @@ export function StudyDrill() {
   const activeCard = useMemo(() => cards.find((card) => card.id === activeCardId) ?? null, [cards, activeCardId]);
 
   const parsedInput = useMemo(() => parseInput(inputText), [inputText]);
+  const wordMatches = useMemo(() => searchWords(wordBand, wordQuery), [wordBand, wordQuery]);
   const isLocked = penaltyActive && lockSecondsLeft > 0;
   const solvedCount = cards.filter((card) => card.isSolved).length;
   const progress = cards.length ? Math.round((solvedCount / cards.length) * 100) : 0;
@@ -256,6 +281,43 @@ export function StudyDrill() {
       window.removeEventListener('touchstart', blockInteraction, true);
     };
   }, [isLocked]);
+
+  function fillWordList(words: string[]) {
+    setInputText(words.join('\n'));
+    setError(null);
+    setMessage(`${words.length} ta so‘z qo‘yildi.`);
+  }
+
+  function rememberWordOffset(band: WordBand, nextOffset: number) {
+    setWordOffsets((current) => {
+      const next = { ...current, [band]: nextOffset };
+      localStorage.setItem(WORD_OFFSET_KEY, JSON.stringify(next));
+      return next;
+    });
+  }
+
+  function handleNextWords() {
+    const batch = nextWords(wordBand, wordOffsets[wordBand], MAX_ITEMS);
+    fillWordList(batch.words);
+    rememberWordOffset(wordBand, batch.nextOffset);
+  }
+
+  function handleRandomWords() {
+    fillWordList(randomWords(wordBand, MAX_ITEMS));
+  }
+
+  function handleAddWord(word: string) {
+    const existing = parseInput(inputText);
+    if (existing.some((item) => item.term.toLowerCase() === word)) {
+      return;
+    }
+    if (existing.length >= MAX_ITEMS) {
+      setError('Ro‘yxatda 30 ta so‘z bor. Bitta olib tashlang yoki yangi 30 tasini qo‘ying.');
+      return;
+    }
+    setError(null);
+    setInputText(existing.length ? `${inputText.trim()}\n${word}` : word);
+  }
 
   const syncSession = (nextSession: DrillSession, reason: 'session-generated' | 'answer-correct' | 'answer-wrong' | 'penalty' | 'session-completed', xpDelta = 0) => {
     void syncNowOrQueue(nextSession, reason, xpDelta);
@@ -452,6 +514,66 @@ export function StudyDrill() {
             >
               {isFocusMode ? 'ON' : 'OFF'}
             </button>
+          </div>
+
+          <div className="space-y-3 rounded-2xl border border-slate-800 bg-slate-950 p-4">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-xs font-bold uppercase tracking-widest text-slate-500">10 000 so‘z</span>
+              <span className="text-xs text-slate-500">{bandSize(wordBand).toLocaleString()} ta</span>
+            </div>
+            <div className="grid grid-cols-4 gap-2">
+              {WORD_BANDS.map((band) => (
+                <button
+                  key={band.id}
+                  type="button"
+                  onClick={() => setWordBand(band.id)}
+                  className={`rounded-xl border px-2 py-2 text-xs font-bold transition-colors ${wordBand === band.id ? 'border-indigo-400 bg-indigo-500 text-white' : 'border-slate-800 bg-slate-900 text-slate-300 hover:border-slate-700'}`}
+                >
+                  <span className="block">{band.label}</span>
+                  <span className={`block text-[10px] font-medium ${wordBand === band.id ? 'text-indigo-100' : 'text-slate-500'}`}>{band.hint}</span>
+                </button>
+              ))}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={handleNextWords}
+                disabled={isLocked}
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-xs font-bold text-slate-200 hover:border-slate-700 disabled:opacity-60"
+              >
+                <ListPlus className="h-3.5 w-3.5" />
+                Keyingi 30
+              </button>
+              <button
+                type="button"
+                onClick={handleRandomWords}
+                disabled={isLocked}
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-xs font-bold text-slate-200 hover:border-slate-700 disabled:opacity-60"
+              >
+                <Dices className="h-3.5 w-3.5" />
+                Tasodifiy 30
+              </button>
+            </div>
+            <input
+              value={wordQuery}
+              onChange={(event) => setWordQuery(event.target.value)}
+              className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none transition-colors focus:border-indigo-500/60"
+              placeholder="So‘z qidirish"
+            />
+            {wordMatches.length ? (
+              <div className="flex flex-wrap gap-2">
+                {wordMatches.map((word) => (
+                  <button
+                    key={word}
+                    type="button"
+                    onClick={() => handleAddWord(word)}
+                    className="rounded-full border border-slate-800 bg-slate-900 px-3 py-1 text-xs font-bold text-slate-200 hover:border-indigo-400"
+                  >
+                    {word}
+                  </button>
+                ))}
+              </div>
+            ) : null}
           </div>
 
           <div>
