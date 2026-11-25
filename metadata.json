@@ -1,0 +1,6 @@
+{
+  "name": "WordCross Multiplayer",
+  "description": "An EdTech crossword generation and realtime multiplayer app.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
